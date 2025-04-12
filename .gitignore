@@ -1,0 +1,28 @@
+# Environment files
+.env
+
+# Virtual environments
+.venv/
+venv/
+
+# Local data
+data/
+chroma_db/
+
+# Notebooks
+notebooks/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.so
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.idea/
