@@ -1,14 +1,21 @@
-from fastapi import FastAPI, HTTPException, Depends
+from typing import List
+
+from fastapi import FastAPI, Query, HTTPException, Depends
 from pydantic import BaseModel, Field, validator
+from sqlalchemy import or_, and_
 from sqlalchemy.orm import Session
 
+import database
 from filters.FilterManager import FilterManager
 from filters.ToxicityFilter import ToxicityFilter
 from filters.PersonalInfoLeakageFilter import PersonalInfoLeakageFilter
 from filters.SexualContentFilter import SexualContentFilter
 from pipeline import ReviewPipeline
 from uuid import UUID
+
+from repository import schemas
 from src.database import get_db
+from src.repository import models
 
 class ReviewData(BaseModel):
     user_id: UUID
@@ -49,3 +56,21 @@ async def generate_response(review_data: ReviewData, db: Session = Depends(get_d
         raise HTTPException(status_code=500, detail=f"Error processing review: {str(e)}")
 
 
+@app.get("/listing/reviews", response_model=List[schemas.UserReview])
+def get_reviews(
+        page: int = Query(1, ge=1),
+        size: int = Query(10, ge=1, le=20),
+        db: Session = Depends(get_db)
+):
+    skip = (page - 1) * size
+    query = db.query(models.UserReview).outerjoin(models.ReviewResponseAI).filter(
+        (models.UserReview.is_flagged == False) |
+        ((models.UserReview.is_flagged == True) & (models.UserReview.moderation_status == 'approved'))
+    )
+
+    reviews = query.offset(skip).limit(size).all()
+
+    if not reviews:
+        raise HTTPException(status_code=404, detail="No reviews found")
+
+    return reviews

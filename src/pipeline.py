@@ -1,5 +1,8 @@
 import logging
 from typing import List, Dict
+
+from fastapi import HTTPException
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from filters.FilterManager import FilterManager
@@ -11,19 +14,37 @@ from src.repository.models import UserReview, ReviewResponseAI
 logger = logging.getLogger(__name__)
 
 def _handle_flagged_review(db, review_data, flagged_reason, custom_response_text):
-    flagged_review = UserReview(
-        review_text=review_data.reviewText,
-        rating=review_data.rating,
-        user_id=review_data.user_id,
-        username=review_data.user_name,
-        is_flagged=True,
-        flagged_by=flagged_reason,
-        moderation_status='pending',
-    )
-    db.add(flagged_review)
-    db.commit()
-    logger.info(f"Flagged review for user_id={review_data.user_id}. Reason: {flagged_reason}")
-    return custom_response_text or "Thanks for your feedback. A member of our support team will review your message."
+    try:
+        flagged_review = UserReview(
+            review_text=review_data.reviewText,
+            rating=review_data.rating,
+            user_id=review_data.user_id,
+            username=review_data.user_name,
+            is_flagged=True,
+            flagged_by=flagged_reason,
+            moderation_status='pending',
+        )
+        db.add(flagged_review)
+        db.flush()
+
+        response_text = custom_response_text or "Thanks for your feedback. A member of our support team will review your message."
+        review_response = ReviewResponseAI(
+            review_id=flagged_review.id,
+            responder_type='ai',
+            response_text=response_text,
+            language='en',
+        )
+        db.add(review_response)
+        db.commit()
+
+        logger.info(f"Flagged review for user_id={review_data.user_id}. Reason: {flagged_reason}")
+
+        return response_text
+
+    except SQLAlchemyError as e:
+        db.rollback()  # Rollback the transaction if an error occurs
+        logger.error(f"Error flagging review for user_id={review_data.user_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Error processing the review.")
 
 
 def _store_valid_review(db, review_data, response_text: str) -> str:

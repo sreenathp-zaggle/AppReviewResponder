@@ -19,8 +19,8 @@ class UserReview(Base):
 
     # 🚩 New columns for moderation
     is_flagged = Column(Boolean, default=False)  # True if flagged
-    flagged_by = Column(String, nullable=True, default='auto-moderation')   #auto-moderation or manual
-    moderation_status = Column(String, default="pending")  # 'pending', 'approved', 'rejected'
+    flagged_by = Column(String, nullable=True)   #auto-moderation or manual
+    moderation_status = Column(String)  # 'pending', 'approved', 'rejected'
     flagged_at = Column(DateTime(timezone=True), server_default=func.now())  # When it was flagged
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())  # When the review was created
