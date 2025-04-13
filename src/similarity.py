@@ -22,7 +22,7 @@ collection = chroma_client.get_collection(name ="faq_embeddings")
 def get_relevant_faqs(review_text: str):
     print("Review text:", review_text)
     embedded = embedding_fn([review_text])[0]
-    results = collection.query(query_embeddings=[embedded], n_results=1)
+    results = collection.query(query_embeddings=[embedded], n_results=3)
 
     if not results["documents"]:
         return []

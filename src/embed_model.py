@@ -1,7 +1,6 @@
 import os
 import pandas as pd
 import chromadb
-from chromadb.config import Settings
 from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
 from dotenv import load_dotenv
 load_dotenv()

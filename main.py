@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel, Field, validator
 from sqlalchemy.orm import Session
@@ -40,7 +39,8 @@ def get_filter_manager() -> FilterManager:
     return FilterManager(filters)
 
 @app.post("/review/generate")
-async def generate_response(review_data: ReviewData, db: Session = Depends(get_db), filter_manager: FilterManager = Depends(get_filter_manager)):
+async def generate_response(review_data: ReviewData, db: Session = Depends(get_db), filter_manager: FilterManager = Depends(get_filter_manager)
+):
     try:
         pipeline = ReviewPipeline(filter_manager)
         response = pipeline.run_pipeline_test(review_data, db)

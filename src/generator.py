@@ -15,14 +15,15 @@ def generate_response(prompt: str):
     }
 
     payload = {
-        "model": "gpt-4o",  # or gpt-3.5-turbo
+        "model": "gpt-4o",
         "messages": [
             {"role": "system", "content": "You are a helpful, concise support assistant."},
             {"role": "user", "content": prompt}
         ],
-        "temperature": 0.1
+        "temperature": 0.1,
+        # "max_tokens": 512
     }
-
     response = requests.post(url, headers=headers, json=payload)
+    print(response)
     response.raise_for_status()
     return response.json()["choices"][0]["message"]["content"]
