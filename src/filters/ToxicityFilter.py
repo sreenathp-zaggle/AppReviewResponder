@@ -1,12 +1,12 @@
 from transformers import pipeline
 
 from filters.ContentFilter import ContentFilter
-from utils.constants import TOXIC_RESPONSES
+from utils.constants import TOXIC_RESPONSES, TOXIC_MODEL_NAME
 
 
 class ToxicityFilter(ContentFilter):
     def __init__(self):
-        self.classifier = pipeline("text-classification", model="unitary/toxic-bert")
+        self.classifier = pipeline("text-classification", model=TOXIC_MODEL_NAME)
         self.latest_score = 0.0
         self.latest_label = ""
 
@@ -22,7 +22,7 @@ class ToxicityFilter(ContentFilter):
     def generate_response_based_on_confidence(self) -> str:
         if self.latest_score > 0.90:
             return TOXIC_RESPONSES["high"]
-        elif self.latest_score > 0.60:
+        elif self.latest_score > 0.75:
             return TOXIC_RESPONSES["moderate"]
         else:
             return TOXIC_RESPONSES["low"]

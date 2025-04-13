@@ -8,3 +8,7 @@ class ContentFilter(ABC):
     @abstractmethod
     def reason(self) -> str:
         pass
+
+    @abstractmethod
+    def generate_response_based_on_confidence(self):
+        pass

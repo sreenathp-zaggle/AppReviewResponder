@@ -2,18 +2,18 @@ from typing import List
 
 from fastapi import FastAPI, Query, HTTPException, Depends
 from pydantic import BaseModel, Field, validator
-from sqlalchemy import or_, and_
+from sqlalchemy import or_, and_, desc
 from sqlalchemy.orm import Session
 
-import database
 from filters.FilterManager import FilterManager
 from filters.ToxicityFilter import ToxicityFilter
 from filters.PersonalInfoLeakageFilter import PersonalInfoLeakageFilter
-from filters.SexualContentFilter import SexualContentFilter
+from filters.ObsceneContentFilter import ObsceneContentFilter
 from pipeline import ReviewPipeline
 from uuid import UUID
-
+from fastapi.middleware.cors import CORSMiddleware
 from repository import schemas
+from repository.schemas import GroupedReviews
 from src.database import get_db
 from src.repository import models
 
@@ -37,12 +37,27 @@ class ReviewData(BaseModel):
 
 app = FastAPI()
 
+origins = [
+    "http://localhost:5173",  # Vite frontend
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",  # Optional, if you're using another port
+    "https://<your-ngrok-url>.ngrok-free.app"  # Optional, if testing via ngrok
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # You can also set to ["*"] for all origins (not recommended for prod)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 @app.get("/")
 async def root():
     return {"message": "Hello World"}
 
 def get_filter_manager() -> FilterManager:
-    filters = [ToxicityFilter()]
+    filters = [ToxicityFilter(), ObsceneContentFilter(), PersonalInfoLeakageFilter()]
     return FilterManager(filters)
 
 @app.post("/review/generate")
@@ -56,21 +71,43 @@ async def generate_response(review_data: ReviewData, db: Session = Depends(get_d
         raise HTTPException(status_code=500, detail=f"Error processing review: {str(e)}")
 
 
-@app.get("/listing/reviews", response_model=List[schemas.UserReview])
+@app.get("/listing/reviews", response_model=GroupedReviews)
 def get_reviews(
         page: int = Query(1, ge=1),
-        size: int = Query(10, ge=1, le=20),
+        size: int = Query(20, ge=1, le=100),
         db: Session = Depends(get_db)
 ):
     skip = (page - 1) * size
-    query = db.query(models.UserReview).outerjoin(models.ReviewResponseAI).filter(
-        (models.UserReview.is_flagged == False) |
-        ((models.UserReview.is_flagged == True) & (models.UserReview.moderation_status == 'approved'))
-    )
 
-    reviews = query.offset(skip).limit(size).all()
+    all_reviews = (db.query(models.UserReview).outerjoin(models.ReviewResponseAI)
+                   .order_by(desc(models.UserReview.created_at))
+                   .offset(skip).limit(size).all())
 
-    if not reviews:
+    user_reviews = []
+    admin_reviews = []
+
+    for review in all_reviews:
+        if not review.is_flagged or (review.is_flagged and review.moderation_status == 'approved'):
+            user_reviews.append(review)
+        elif review.is_flagged and review.moderation_status == 'rejected':
+            continue
+        else:
+            admin_reviews.append(review)
+
+    if not user_reviews and not admin_reviews:
         raise HTTPException(status_code=404, detail="No reviews found")
 
-    return reviews
+    return {
+        "user": user_reviews,
+        "admin": admin_reviews
+    }
+
+@app.post("/review/moderation_update")
+def moderate_review(request: schemas.ReviewModerationUpdateRequest, db: Session = Depends(get_db)):
+    review = db.query(models.UserReview).filter(models.UserReview.id == request.review_id).first()
+    if not review:
+        raise HTTPException(status_code=404, detail="Review not found")
+    review.moderation_status = request.moderation_status
+    db.commit()
+    db.refresh(review)
+    return {"message": f"Review {request.moderation_status} successfully"}

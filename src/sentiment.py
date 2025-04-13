@@ -1,17 +1,15 @@
 from transformers import pipeline
 
-classifier = pipeline("text-classification", model="cardiffnlp/twitter-roberta-base-sentiment")
+from utils.constants import SENTIMENT_CLASSIFIER_MODEL, LABEL_MAP
 
-label_map = {
-    'LABEL_0': 'negative',
-    'LABEL_1': 'neutral',
-    'LABEL_2': 'positive'
-}
+classifier = pipeline("text-classification", model=SENTIMENT_CLASSIFIER_MODEL)
+
+
 
 def classify_sentiment(text):
     result = classifier(text)
     label = result[0]['label']
-    sentiment = label_map.get(label, 'neutral') # 'positive', 'negative', or 'neutral'
+    sentiment = LABEL_MAP.get(label, 'neutral') # 'positive', 'negative', or 'neutral'
     return sentiment
 
 def classify_input_rating(text):
