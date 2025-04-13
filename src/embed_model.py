@@ -1,37 +1,66 @@
 import os
+
+import openai
 import pandas as pd
-import chromadb
-from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
+import faiss
+import numpy as np
 from dotenv import load_dotenv
+from openai import OpenAI
+
+from database import get_db
+from repository.models import FAQ
+
 load_dotenv()
+
 EMBEDDING_MODEL = "text-embedding-3-small"
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# Function to generate embeddings using OpenAI API
+def get_embeddings(texts, model=EMBEDDING_MODEL):
+    response = client.embeddings.create(
+        input=texts,
+        model=model
+    )
+    embeddings = [item.embedding for item in response.data]
+    return np.array(embeddings)
+
+def save_faqs_to_db(df):
+    db = next(get_db())
+    for idx, row in df.iterrows():
+        if pd.isna(row["UserQuery"]) or pd.isna(row["ProductResponses"]):
+            continue
+        db.add(FAQ(question=row["UserQuery"], answer=row["ProductResponses"]))
+    db.commit()
 
 def embed_faq(file_path="./data/Chatbot_FAQs_dataset.xlsx"):
     print("Entering embed_faq() model")
-    chroma_client = chromadb.PersistentClient(path='./chroma_db')
-    embedding_fn = OpenAIEmbeddingFunction(api_key=OPENAI_API_KEY, model_name=EMBEDDING_MODEL)
-    collection = chroma_client.get_or_create_collection(name="faq_embeddings", embedding_function=embedding_fn)
 
-    if collection.count() > 0:
-        print("✅ FAQ already embedded.")
-        return
-
+    # Read the FAQ dataset
     df = pd.read_excel(file_path)
-    for idx, row in df.iterrows():
-        doc_id = f"faq_{idx}"
-        if(row["UserQuery"] is None or row["ProductResponses"] is None):
-            # print(f"Skipping row {idx} due to missing data.")
-            continue
 
+    # Save FAQs to DB
+    save_faqs_to_db(df)
+
+    # Prepare data for embedding
+    faq_data = []
+    for idx, row in df.iterrows():
+        if row["UserQuery"] is None or row["ProductResponses"] is None:
+            continue
         content = f"Q: {row['UserQuery']} A: {row['ProductResponses']}"
-        collection.add(
-            documents=[content],
-            ids=[doc_id],
-            metadatas=[{
-                "question": row["UserQuery"],
-                "answer": row["ProductResponses"]}]
-        )
+        faq_data.append(content)
+
+    # Generate embeddings using OpenAI
+    embeddings = get_embeddings(faq_data)
+
+    # Define the FAISS index (use dimension based on your embedding model size)
+    dimension = embeddings.shape[1]  # Assuming embeddings are 2D (num_samples x embedding_dimension)
+    index = faiss.IndexFlatL2(dimension)  # Using a simple L2 (Euclidean) distance index
+
+    # Add embeddings to FAISS index
+    index.add(embeddings)
+
+    # Save the index to disk
+    faiss.write_index(index, 'faq_index.faiss')
 
     print("✅ FAQ embedding completed.")
 

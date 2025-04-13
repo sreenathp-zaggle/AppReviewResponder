@@ -53,7 +53,7 @@ def format_faq(faqs: List[Dict[str, str]]) -> str:
     return "\n".join([f"Q: {faq['question']}\nA: {faq['answer']}" for faq in faqs])
 
 
-def build_contradiction_prompt(review_data) -> str:
+def build_contradiction_prompt(review_data, db) -> str:
     """
     Builds a refined prompt when there's a mismatch between rating and review sentiment.
     If FAQ entries are relevant, they’re added into the response to support the user effectively.
@@ -61,7 +61,7 @@ def build_contradiction_prompt(review_data) -> str:
     review_text = review_data.reviewText
     rating = review_data.rating
 
-    relevant_faqs = get_relevant_faqs(review_text)
+    relevant_faqs = get_relevant_faqs(review_text, db)
     faq_text = ""
     if relevant_faqs:
         top_faq = relevant_faqs[0]  # Use top match for clarity
@@ -77,9 +77,9 @@ def build_contradiction_prompt(review_data) -> str:
 
     return f"{base_prompt}\n\n{faq_text if faq_text else ''}\n\n{closing_line}"
 
-def build_prompt_by_sentiment(sentiment: str, review_data) -> str:
+def build_prompt_by_sentiment(sentiment: str, review_data, db) -> str:
     review_text = review_data.reviewText
-    relevant_faqs = get_relevant_faqs(review_data.reviewText)
+    relevant_faqs = get_relevant_faqs(review_data.reviewText, db)
 
     if sentiment == 'negative':
         faq_text = format_faq(relevant_faqs) if relevant_faqs else ""
@@ -122,9 +122,9 @@ class ReviewPipeline:
             ai_sentiment = classify_sentiment(review_data.reviewText)
 
             if input_rating_sentiment == ai_sentiment:
-                prompt = build_prompt_by_sentiment(ai_sentiment, review_data)
+                prompt = build_prompt_by_sentiment(ai_sentiment, review_data, db)
             else:
-                prompt = build_contradiction_prompt(review_data)
+                prompt = build_contradiction_prompt(review_data, db)
 
             response_text = generate_response(prompt)
 

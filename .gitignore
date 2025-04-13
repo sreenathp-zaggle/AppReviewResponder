@@ -8,6 +8,7 @@ venv/
 # Local data
 data/
 chroma_db/
+faq_index.faiss
 
 # Notebooks
 notebooks/

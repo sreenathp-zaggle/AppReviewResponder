@@ -5,7 +5,7 @@ transformers~=4.51.1
 torch
 pandas~=2.2.3
 sentence-transformers~=4.0.2
-faiss-cpu
+faiss-cpu~=1.10.0
 scikit-learn~=1.6.1
 jupyterlab
 requests~=2.32.3
@@ -14,3 +14,5 @@ python-dotenv~=1.1.0
 pydantic~=2.11.3
 SQLAlchemy~=2.0.40
 langid
+faiss-cpu
+openai~=1.72.0

@@ -51,3 +51,10 @@ class ReviewResponseAI(Base):
     __table_args__ = (
         Index('ix_review_responses_ai_review_id', 'review_id'),
     )
+
+class FAQ(Base):
+    __tablename__ = "faqs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    question = Column(Text, nullable=False)
+    answer = Column(Text, nullable=False)
